@@ -1,7 +1,7 @@
 # WikiTopicExtractor
 
 
-### 資料下載
+### 資料下載 (英文則將zhwiki改為enwiki)
 中文wiki資料下載： `wget https://dumps.wikimedia.org/zhwiki/latest/zhwiki-latest-pages-articles.xml.bz2`
 
 下載完成後透過`WikiExtractor.py`將資料壓切成多份小檔案
