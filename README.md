@@ -6,7 +6,9 @@
 
 下載完成後透過`WikiExtractor.py`將資料壓切成多份小檔案
 * 原始下載處： https://github.com/attardi/wikiextractor
-* 解壓縮至extracted： `WikiExtractor.py -cb 250K -o extracted zhwiki-latest-pages-articles.xml.bz2` 
+* 解壓縮至extracted： `WikiExtractor.py -cb 250K -o extracted zhwiki-latest-pages-articles.xml.bz2`
+
+簡繁轉換套件openncc下載處： https://github.com/yichen0831/opencc-python
 
 
 ### 使用方法
