@@ -12,10 +12,10 @@ import logging
 
 logging.basicConfig(format='%(levelname)s : %(asctime)s : %(message)s', filename='completed.log', level=logging.INFO)
 # 可以爬取階層架構的pair以及頁面內容
-class WikiCrawler(object):
-    """docstring for WikiCrawler"""
+class WikiTopicExtractor(object):
+    """docstring for WikiTopicExtractor"""
     def __init__(self):
-        # super(WikiCrawler, self).__init__()
+        # super(WikiTopicExtractor, self).__init__()
         self.folderName = 'pairfile'
         self.domain = 'https://zh.wikipedia.org'
         self.count = 2 # at least 2, because root and leaf
@@ -300,5 +300,5 @@ class WikiCrawler(object):
 
 if __name__ == '__main__':
     keyword = '台灣奧運運動員'
-    crawler = WikiCrawler()
+    crawler = WikiTopicExtractor()
     crawler.getContentDict(keyword)
