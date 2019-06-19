@@ -28,14 +28,21 @@ class WikiTopicExtractor(object):
         self.zh_articles = 0
         self.cn_articles = 0
         self.visitList = []
+        # self.init_visitList()
         self.dataList = []
         self.all_title_list = []
         self.topic = ''
         self.dataDict = {}
+        self.dataDict_cn = {}
         self.contentDict = {}
         self.opencc = OpenCC('s2t')
         sys.setrecursionlimit(1000000)
 
+    def init_visitList(self):
+        with open('./topic_list.txt', 'r', encoding='utf-8') as file:
+            for line in file.readlines():
+                self.visitList.append(line.replace('\n', '').strip())
+                
     def opencc_s2t(self, item):
         converted = ''
         if '台湾' in item or \
@@ -128,8 +135,8 @@ class WikiTopicExtractor(object):
                 try:
                     innerRes = sess.get(innerUrl)
                 except:
-                    print("ConnectionError, wait for 120s ...")
-                    print("url:", innerUrl)
+                    print('ConnectionError, wait for 120s ...')
+                    print('url:', innerUrl)
                     time.sleep(120)
                     innerRes = sess.get(innerUrl)
 
@@ -141,16 +148,16 @@ class WikiTopicExtractor(object):
                         delay_time = 5
                     else:
                         delay_time = 60
-                    print("Response error code: {0}, please wait for {1}s ...".format(innerRes.status_code, delay_time))
-                    print("url:", innerUrl)
+                    print('Response error code: {0}, please wait for {1}s ...'.format(innerRes.status_code, delay_time))
+                    print('url:', innerUrl)
                     time.sleep(delay_time)
                     innerRes = sess.get(innerUrl)
 
                 if not innerRes.html.find('.CategoryTreeLabelCategory, #mw-pages a'):
                     if not innerRes.html.find('p'):
                         if not innerRes.html.find('#SoftRedirect a'):
-                            print("Get empty innerRes, wait for 5s ...")
-                            print("url:", innerUrl)
+                            print('Get empty innerRes, wait for 5s ...')
+                            print('url:', innerUrl)
                             time.sleep(5)
                             innerRes = sess.get(innerUrl)
                         else:
@@ -198,7 +205,7 @@ class WikiTopicExtractor(object):
                                                     print(2, ('Category:'+subCategoryName, key))
                                     break
                             except:
-                                print('多頁之頁面發生問題於url:', innerRes.url)
+                                print('(break in line 202)多頁之頁面發生問題於url:', innerRes.url)
                                 break
 
             if res.html.find('#mw-pages a'):
@@ -287,6 +294,80 @@ class WikiTopicExtractor(object):
             json.dump(self.dataDict, open('dataDict_total.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=4)
             print('dataDict_total.json has been created.')
 
+    def getDataDict_zh_cn(self):
+        # 檢查dataDict.json是否存在，已存在則讀取檔案，否則建立檔案
+        if os.path.exists(os.path.join(os.getcwd(), 'dataDict_zh.json')) and \
+            os.path.exists(os.path.join(os.getcwd(), 'dataDict_cn.json')):
+            print('Load dataDict_zh.json ...')
+            with open('dataDict_zh.json', 'r', encoding='utf-8') as file:
+                self.dataDict = json.load(file)
+
+            print('Load dataDict_cn.json ...')
+            with open('dataDict_cn.json', 'r', encoding='utf-8') as file:
+                self.dataDict_cn = json.load(file)
+        else:
+            print('dataDict_zh.json and dataDict_cn.json are not found!')
+            print('Create dataDict_zh.json and dataDict_cn.json ...')
+            for root, dirs, files in tqdm(os.walk('extracted'), ascii=True, desc='folders'): # extracted 為資料夾名稱
+                for file in tqdm(files, ascii=True, desc='files'):
+                    with bz2.BZ2File(os.path.join(root, file), 'r') as file: # , 'rb'
+                        data = ''
+                        title = ''
+                        origin_title = ''
+                        for line in file.readlines():
+                            content = line.decode('utf-8').replace('\n', '')
+                            if content:
+                                if 'title="' in content and '">' in content:
+                                    index = content.find('title="')
+                                    origin_title = content[index+7:-2]
+                                    title = self.opencc_s2t(content[index+7:-2])
+                                    if title == origin_title:
+                                        self.zh_articles += 1
+                                    else:
+                                        self.cn_articles += 1
+                                elif self.opencc_s2t(content) == title:
+                                    continue
+                                else:
+                                    if '</doc>' in content and data is not '':
+                                        # data = self.opencc_s2t(data)
+                                        if title == origin_title: # 繁體標題
+                                            self.dataDict[origin_title] = self.opencc_s2t(data)
+                                        else: # 簡體標題
+                                            self.dataDict_cn[origin_title] = data
+                                        data = ''
+                                    elif '<doc' not in content:
+                                        content_list = content.replace('，', '。').split('。')
+                                        new_content = ''
+                                        for sentc in content_list:
+                                            sentc = sentc.replace('\n', '').strip()
+                                            if sentc and '</doc>' not in sentc:
+                                                if title == origin_title:
+                                                    if self.opencc_s2t(sentc) == sentc: # 繁體標題中之繁體句子
+                                                        # new_content += sentc+' '
+                                                        self.zh_zh_count += 1
+                                                    else: # 繁體標題中之簡體句子
+                                                        self.zh_cn_count += 1
+                                                else:
+                                                    if self.opencc_s2t(sentc) == sentc: # 簡體標題中之繁體句子
+                                                        # new_content += sentc+' '
+                                                        self.cn_zh_count += 1
+                                                    else: # 簡體標題中之簡體句子
+                                                        self.cn_cn_count += 1
+                                                new_content += sentc+' '
+                                        if new_content:
+                                            data += new_content+'\n'
+                                    else:
+                                        print('"{0}" got error !'.format(title))
+            json.dump(self.dataDict, open('dataDict_zh.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=4)
+            json.dump(self.dataDict_cn, open('dataDict_cn.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=4)
+            print('dataDict_zh.json and dataDict_cn.json have been created.')
+            print('繁體標題數:', self.zh_articles)
+            print('簡體標題數:', self.cn_articles)
+            print('繁體標題中，簡體繁體句子比例 --> 繁體句子: {0}, 簡體句子: {1}'.format(self.zh_zh_count, self.zh_cn_count))
+            print('簡體標題中，簡體繁體句子比例 --> 繁體句子: {0}, 簡體句子: {1}'.format(self.cn_zh_count, self.cn_cn_count))
+            print('繁體中文句子數:', self.zh_zh_count+self.cn_zh_count)
+            print('簡體中文句子數:', self.zh_cn_count+self.cn_cn_count)
+                    
     def getDataDict(self):
         # 檢查dataDict.json是否存在，已存在則讀取檔案，否則建立檔案
         if os.path.exists(os.path.join(os.getcwd(), 'dataDict.json')):
@@ -406,6 +487,6 @@ class WikiTopicExtractor(object):
 
 
 if __name__ == '__main__':
-    topic = '台灣奧運運動員'
+    topic = '南美洲'
     crawler = WikiTopicExtractor()
     crawler.getContentDict(topic)
